@@ -6,10 +6,10 @@
 #include "genetic.h"
 
 struct MyGene {
-	MyRandom random;
+	static MyRandom random;
 	char letter;
 
-	MyGene() : random(), letter(getRandomLetter()) {
+	MyGene() : letter(getRandomLetter()) {
 	}
 
 	MyGene(const MyGene& myGene){
@@ -37,6 +37,7 @@ struct MyGene {
 		letter = getRandomLetter();
 	}
 };
+MyRandom MyGene::random;
 
 struct Trait {
 	static constexpr const char* TARGET = "Hello, world!";
@@ -44,23 +45,23 @@ struct Trait {
 	static constexpr int MAX_ERROR = NB_GENES;
 	// Configuration
 	static constexpr int POP_SIZE = 20;
-	static constexpr long MAX_ITERATIONS = 1;
-	static constexpr double CROSSOVER_RATE = 0.80; // % of children produce from a crossover
-	static constexpr double BEST_SELECTION_RATE = 0.20; // % of population consider as best
-	static constexpr double MUTATION_RATE = 0.30;
+	static constexpr long MAX_ITERATIONS = 10000;
+	static constexpr double CROSSOVER_RATE = 0.90; // % of children produce from a crossover
+	static constexpr double BEST_SELECTION_RATE = 0.25; // % of population consider as best
+	static constexpr double MUTATION_RATE = 0.70;
 
 	using Random = MyRandom;
-	using Selection = SimpleSelection<Trait>;
+	using Selection = SimpleSelectionOfBests<Trait>;
+	using SelectionOfBests = SelectionOfBestss<Trait>;
 	using Crossover = SinglePointCrossover<Trait>;
 	using Mutation = SimpleMutation<Trait>;
 	using Sort = Minimise<Trait>;
 	using Evaluate = Eval<Trait>;
 	static Random random;
 	using Gene = MyGene;
-
 	
 };
-Trait::Random Trait::random ;
+Trait::Random Trait::random;
 
 
 

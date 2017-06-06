@@ -1,5 +1,6 @@
 #include <ostream>
 #include <sstream>
+
 struct MyGene ;
 struct MyRandom {
 	static const int ASCII_DOWN_LIMIT;
@@ -87,10 +88,9 @@ struct Maximise
 template<typename _Trait> 
 struct SimpleSelection{
 	// Take a sorted population and select one randomly using the BEST_SELECTION_RATE variable
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation){
-		MyRandom random;
-		int rdm = random.getIntRange(0, _Trait::POP_SIZE-1);
-		int rdm2 = random.getIntRange(0, _Trait::POP_SIZE-1);
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, MyRandom* random){
+		int rdm = random->getIntRange(0, _Trait::POP_SIZE-1);
+		int rdm2 = random->getIntRange(0, _Trait::POP_SIZE-1);
 		assert(rdm >= 0 && rdm < _Trait::POP_SIZE);
 		assert(rdm2 >= 0 && rdm < _Trait::POP_SIZE);
 		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[rdm], sortedPopulation[rdm2]);
@@ -99,34 +99,39 @@ struct SimpleSelection{
 };
 template<typename _Trait> 
 struct SimpleSelectionOfBests{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation){
-		MyRandom random;
-		int rdm = random.getIntRange(0, _Trait::POP_SIZE*_Trait::BEST_SELECTION_RATE-1);
-		int rdm2 = random.getIntRange(0, _Trait::POP_SIZE*_Trait::BEST_SELECTION_RATE-1);
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, MyRandom* random){
+		int rdm = random->getIntRange(0, _Trait::POP_SIZE*_Trait::BEST_SELECTION_RATE-1);
+		int rdm2 = random->getIntRange(0, _Trait::POP_SIZE*_Trait::BEST_SELECTION_RATE-1);
 		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[rdm], sortedPopulation[rdm2]);
+		return pairToReturn;
+	}
+};
+template<typename _Trait> 
+struct SelectionOfBestss{
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, int i){
+		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[i], sortedPopulation[i+1]);
 		return pairToReturn;
 	}
 };
 
 template<typename _Trait> 
 struct TournamentSelection{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation){
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, MyRandom* random){
 		// TODO
 	}
 };
 template<typename _Trait> 
 struct RouletteSelection{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation){
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, MyRandom* random){
 		// TODO
 	}
 };
 ////////////////////////////////////////// CROSSOVER ////////////////////////////////////////// vc
 template<typename _Trait> 
 struct SinglePointCrossover{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(const std::pair<Chromosome<_Trait>, Chromosome<_Trait>>& parents){		
-		MyRandom random;
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(const std::pair<Chromosome<_Trait>, Chromosome<_Trait>>& parents, MyRandom* random){		
 		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> children;
-		int randomCursor = random.getIntRange(1, _Trait::NB_GENES - 2);
+		int randomCursor = random->getIntRange(1, _Trait::NB_GENES - 2);
 		for(int i=0; i<randomCursor; i++){
 			children.first.genes[i] = parents.first.genes[i];
 			children.second.genes[i] = parents.second.genes[i];
@@ -140,11 +145,10 @@ struct SinglePointCrossover{
 };
 template<typename _Trait> 
 struct TwoPointCrossover{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents){		
-		MyRandom random;
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents, MyRandom* random){		
 		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> children;
-		int randomCursor = random.getIntRange(1, _Trait::NB_GENES - 3);
-		int randomCursor2 = random.getIntRange(randomCursor+1, _Trait::NB_GENES - 2);
+		int randomCursor = *random->getIntRange(1, _Trait::NB_GENES - 3);
+		int randomCursor2 = *random->getIntRange(randomCursor+1, _Trait::NB_GENES - 2);
 
 		children.first.genes = parents.first.genes;
 		children.second.genes = parents.second.genes;
@@ -158,16 +162,15 @@ struct TwoPointCrossover{
 };
 template<typename _Trait> 
 struct MultiPointsCrossover{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents){		
+	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents, MyRandom* random){		
 		// TODO
 	}
 };
 ////////////////////////////////////////// MUTATION //////////////////////////////////////////
 template<typename _Trait> 
 struct SimpleMutation{
-	static void mutation(Chromosome<_Trait>& chromosome){
-		MyRandom random;
-		int indexGene = random.getIntRange(0, _Trait::NB_GENES-1);
+	static void mutation(Chromosome<_Trait>& chromosome, MyRandom* random){
+		int indexGene = random->getIntRange(0, _Trait::NB_GENES-1);
 		chromosome.genes[indexGene].mutation();
 	}
 
@@ -190,27 +193,34 @@ struct Eval
 template<typename _Trait> 
 class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 	using Random = typename _Trait::Random;
-		public:
+	public:
 		GeneticAlgo() : population(_Trait::POP_SIZE), population2(), random() {
 			population2.reserve(_Trait::POP_SIZE);
 			// initialisation();
 		};
-
 		void start(){
+#ifndef NDEBUG
+	printAllRes();
+#endif
 			do {
-				printAllRes();
-				std::cout << "evaluation - sort" << std::endl;
+#ifndef NDEBUG
+	printAllRes();
+	std::cout << "evaluation - sort" << std::endl;
+#endif
 				evaluate();
 				sort();
-				printAllRes();
+#ifndef NDEBUG
+	printAllRes();
+#endif
 				if(population[0].fitness == 0){
 					break;
 				}
-				std::cout << "crossover" << std::endl;
 				crossover();
-				printAllRes();
+#ifndef NDEBUG
+	std::cout << "crossover" << std::endl;
+	printAllRes();
+#endif
 			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1));
-			std::cout << "evaluation - sort" << std::endl;
 			evaluate();
 			sort();
 			printAllRes();
@@ -220,6 +230,7 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			std::cout << "Best answer found in " << currentIterationCount << " iterations : " << population[0]  << std::endl;
 		}
 		void printAllRes(){
+			std::cout << "Best answer found in " << currentIterationCount << " iterations : " << population[0]  << std::endl;
 			for(int i=0; i<_Trait::POP_SIZE; i++){
 				std::cout << "[" << i << "] >" << population[i].toString() << std::endl;
 			}
@@ -228,12 +239,6 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 		std::vector<Chromosome<_Trait>> population2;
 		Random random;
 		size_t currentIterationCount = -1;
-		// void initialisation(){
-		// 	for(int i=0; i<_Trait::POP_SIZE; ++i){
-		// 		population[i].init();
-		// 		population2[i].init();
-		// 	}
-		// }
 
 		void evaluate(){
 			for(int i=0; i<_Trait::POP_SIZE; ++i){
@@ -242,8 +247,10 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 		}
 		void mutation(Chromosome<_Trait>& ch){
 			if( random.getRealBetweenOneAndZero() < _Trait::MUTATION_RATE){
-				std::cout << "MUTATION !!! " <<  std::endl;
-				_Trait::Mutation::mutation(ch);
+#ifndef NDEBUG
+	std::cout << "MUTATION !!! " <<  std::endl;
+#endif		
+				_Trait::Mutation::mutation(ch, &random);
 			}
 		}
 		void crossover(){
@@ -252,20 +259,23 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			assert(population.size() != 0);
 
 			while(population2.size() <= _Trait::POP_SIZE*_Trait::CROSSOVER_RATE){
-				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> parents = _Trait::Selection::selection(population);
-				std::cout << "parent 1 : " << parents.first.toString() << " parent 2 : " << parents.second.toString() << std::endl;
-				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> children = _Trait::Crossover::crossover(parents);
-				std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> parents = _Trait::Selection::selection(population, &random);
+				// std::cout << "parent 1 : " << parents.first.toString() << " parent 2 : " << parents.second.toString() << std::endl;
+				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> children = _Trait::Crossover::crossover(parents, &random);
+				// std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
 				// TODO Peut peut etre depassé le vector ici (si POP_SIZE est impair)
 				mutation(children.first);
 				mutation(children.second);
-				std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+				// std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
 				population2.push_back(children.first);
 				population2.push_back(children.second);
 
 			}
+			int i=0;
 			while(population2.size() <= _Trait::POP_SIZE){
-				std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::Selection::selection(population);
+				// std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::Selection::selection(population, &random);
+				std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::SelectionOfBests::selection(population, i);
+				i+=2;
 				// TODO Peut peut etre depassé le vector ici (si POP_SIZE est impair)
 				population2.push_back(nonChangeIndiv.first);
 				population2.push_back(nonChangeIndiv.second);
