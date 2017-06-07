@@ -39,9 +39,12 @@ struct MyGene {
 };
 MyRandom MyGene::random;
 
+constexpr size_t stringSize(const char* str){
+    return (*str == 0) ? 0 : stringSize(str + 1) + 1;
+}
 struct Trait {
 	static constexpr const char* TARGET = "Hello, world!";
-	static constexpr int NB_GENES = 13;	
+	static constexpr int NB_GENES = stringSize(TARGET);	
 	static constexpr int MAX_ERROR = NB_GENES;
 	// Configuration
 	static constexpr int POP_SIZE = 20;
@@ -52,18 +55,16 @@ struct Trait {
 
 	using Random = MyRandom;
 	using Selection = SimpleSelectionOfBests<Trait>;
-	using SelectionOfBests = SelectionOfBestss<Trait>;
+	using SelectionOfBests = SelectionOfFirstBests<Trait>;
 	using Crossover = SinglePointCrossover<Trait>;
 	using Mutation = SimpleMutation<Trait>;
 	using Sort = Minimise<Trait>;
 	using Evaluate = Eval<Trait>;
-	static Random random;
 	using Gene = MyGene;
 	
+	static Random random;
 };
 Trait::Random Trait::random;
-
-
 
 int main(int argc, char* argv[]){
     (void)argc;

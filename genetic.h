@@ -3,14 +3,13 @@
 
 struct MyGene ;
 struct MyRandom {
-	static const int ASCII_DOWN_LIMIT;
-	static const int ASCII_UP_LIMIT;
+	static constexpr int ASCII_DOWN_LIMIT = 32;
+	static constexpr int ASCII_UP_LIMIT = 126;
 
 	MyRandom() : r(), gen(r()), get_real_between_one_and_zero(0, 1), get_int_ascii(ASCII_DOWN_LIMIT,ASCII_UP_LIMIT) {
 	}
 
 	MyRandom& operator=(const MyRandom& myRandom){
-		// r();
 		gen = myRandom.gen;
 		get_real_between_one_and_zero = myRandom.get_real_between_one_and_zero;
 		get_int_ascii = myRandom.get_int_ascii;
@@ -23,28 +22,18 @@ struct MyRandom {
     }
     // Return a char between the 2 limits of ascii char
     char getIntAsciiChar() {
-        //int downlimit=ASCII_DOWN_LIMIT;
-       // int uplimit=ASCII_UP_LIMIT;
-       // return std::uniform_int_distribution<int>(ASCII_DOWN_LIMIT, ASCII_UP_LIMIT)(gen);
-    	//return std::uniform_int_distribution<int>(32, 126)(gen);
     	return get_int_ascii(gen);
-    	// return 0;
     }
     // Return a random int between downlimit and uplimit included
     int getIntRange(int downlimit, int uplimit){
     	return std::uniform_int_distribution<int>(downlimit, uplimit)(gen);
     }
-
 	private:
- 	// Seed with a real random value, if available
     std::random_device r;
     std::mt19937 gen; 
     std::uniform_real_distribution<double> get_real_between_one_and_zero;
     std::uniform_int_distribution<int> get_int_ascii;
 };
-
-const int MyRandom::ASCII_DOWN_LIMIT = 32;
-const int MyRandom::ASCII_UP_LIMIT = 126;
 
 template<typename _Trait> 
 struct Chromosome : _Trait::Evaluate {
@@ -107,7 +96,7 @@ struct SimpleSelectionOfBests{
 	}
 };
 template<typename _Trait> 
-struct SelectionOfBestss{
+struct SelectionOfFirstBests{
 	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, int i){
 		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[i], sortedPopulation[i+1]);
 		return pairToReturn;
@@ -126,7 +115,7 @@ struct RouletteSelection{
 		// TODO
 	}
 };
-////////////////////////////////////////// CROSSOVER ////////////////////////////////////////// vc
+////////////////////////////////////////// CROSSOVER ////////////////////////////////////////// 
 template<typename _Trait> 
 struct SinglePointCrossover{
 	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(const std::pair<Chromosome<_Trait>, Chromosome<_Trait>>& parents, MyRandom* random){		
@@ -175,7 +164,7 @@ struct SimpleMutation{
 	}
 
 };
-
+////////////////////////////////////////// EVALUATION //////////////////////////////////////////
 template<typename _Trait> 
 struct Eval
 {
@@ -188,38 +177,35 @@ struct Eval
 	}
 };
 
-
-
 template<typename _Trait> 
 class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 	using Random = typename _Trait::Random;
 	public:
 		GeneticAlgo() : population(_Trait::POP_SIZE), population2(), random() {
 			population2.reserve(_Trait::POP_SIZE);
-			// initialisation();
 		};
 		void start(){
-#ifndef NDEBUG
-	printAllRes();
-#endif
+		#ifndef NDEBUG
+			printAllRes();
+		#endif
 			do {
-#ifndef NDEBUG
-	printAllRes();
-	std::cout << "evaluation - sort" << std::endl;
-#endif
+				#ifndef NDEBUG
+					printAllRes();
+					std::cout << "evaluation - sort" << std::endl;
+				#endif
 				evaluate();
 				sort();
-#ifndef NDEBUG
-	printAllRes();
-#endif
+				#ifndef NDEBUG
+					printAllRes();
+				#endif
 				if(population[0].fitness == 0){
 					break;
 				}
 				crossover();
-#ifndef NDEBUG
-	std::cout << "crossover" << std::endl;
-	printAllRes();
-#endif
+				#ifndef NDEBUG
+					std::cout << "crossover" << std::endl;
+					printAllRes();
+				#endif
 			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1));
 			evaluate();
 			sort();
@@ -247,36 +233,35 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 		}
 		void mutation(Chromosome<_Trait>& ch){
 			if( random.getRealBetweenOneAndZero() < _Trait::MUTATION_RATE){
-#ifndef NDEBUG
-	std::cout << "MUTATION !!! " <<  std::endl;
-#endif		
+				#ifndef NDEBUG
+					std::cout << "MUTATION !!! " <<  std::endl;
+				#endif		
 				_Trait::Mutation::mutation(ch, &random);
 			}
 		}
 		void crossover(){
-			// std::cout << "DEBUG >>>>>" << currentIterationCount << std::endl;
 			assert(population2.size() == 0);
 			assert(population.size() != 0);
 
 			while(population2.size() <= _Trait::POP_SIZE*_Trait::CROSSOVER_RATE){
 				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> parents = _Trait::Selection::selection(population, &random);
-				// std::cout << "parent 1 : " << parents.first.toString() << " parent 2 : " << parents.second.toString() << std::endl;
 				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> children = _Trait::Crossover::crossover(parents, &random);
-				// std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
-				// TODO Peut peut etre depassé le vector ici (si POP_SIZE est impair)
+				#ifndef NDEBUG
+					std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+				#endif		
 				mutation(children.first);
 				mutation(children.second);
-				// std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+				#ifndef NDEBUG
+					std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+				#endif		
 				population2.push_back(children.first);
 				population2.push_back(children.second);
 
 			}
 			int i=0;
 			while(population2.size() <= _Trait::POP_SIZE){
-				// std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::Selection::selection(population, &random);
 				std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::SelectionOfBests::selection(population, i);
 				i+=2;
-				// TODO Peut peut etre depassé le vector ici (si POP_SIZE est impair)
 				population2.push_back(nonChangeIndiv.first);
 				population2.push_back(nonChangeIndiv.second);
 
@@ -288,4 +273,3 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			std::sort(population.begin(), population.end(), _Trait::Sort::sort);
 		}
 };
-
