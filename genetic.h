@@ -1,12 +1,24 @@
+#ifndef GENETIC_H
+#define GENETIC_H
+
 #include <ostream>
 #include <sstream>
+#include <random>
+#include <iostream>
+#include <algorithm>
+#include <cassert>
 
+
+// #include "irq.h"
+// #include "genetic.h"
+
+long pingpong();
 struct MyGene ;
 struct MyRandom {
 	static constexpr int ASCII_DOWN_LIMIT = 32;
 	static constexpr int ASCII_UP_LIMIT = 126;
 
-	MyRandom() : r(), gen(r()), get_real_between_one_and_zero(0, 1), get_int_ascii(ASCII_DOWN_LIMIT,ASCII_UP_LIMIT) {
+	MyRandom() : r(), gen(r()), get_real_between_one_and_zero(0, 1), get_int_ascii(ASCII_DOWN_LIMIT,ASCII_UP_LIMIT), get_int_between_one_and_zero(0,1) {
 	}
 
 	MyRandom& operator=(const MyRandom& myRandom){
@@ -28,11 +40,17 @@ struct MyRandom {
     int getIntRange(int downlimit, int uplimit){
     	return std::uniform_int_distribution<int>(downlimit, uplimit)(gen);
     }
+   	// Return a real between 1 and 0
+    int getIntBetweenOneAndZero() {
+    	return get_int_between_one_and_zero(gen);
+    }
+
 	private:
     std::random_device r;
     std::mt19937 gen; 
     std::uniform_real_distribution<double> get_real_between_one_and_zero;
     std::uniform_int_distribution<int> get_int_ascii;
+    std::uniform_int_distribution<int> get_int_between_one_and_zero;
 };
 
 template<typename _Trait> 
@@ -52,9 +70,33 @@ struct Chromosome : _Trait::Evaluate {
 		std::stringstream ss;
 		ss << "fitness = " << std::to_string(fitness) << " chromosome : ";
 		for(size_t i=0; i<genes.size(); i++){
-			ss << genes[i].toString();
+			ss << genes[i].toString() << " ";
 		}
 		return ss.str();;
+	}
+};
+////////////////////////////////////////// EVALUATION //////////////////////////////////////////
+template<typename _Trait> 
+struct EvalHelloWorld
+{
+	double evaluate(Chromosome<_Trait>& chromosome){
+		double fitness = 0;
+		for(size_t i=0; i<chromosome.genes.size(); i++){
+			if(chromosome.genes[i].letter != _Trait::TARGET[i]){ fitness ++; }
+		}
+		return fitness;
+	}
+};
+template<typename _Trait> 
+struct EvalIrq
+{
+	double evaluate(Chromosome<_Trait>& chromosome){
+		double fitness = 0;
+
+		setIrq(chromosome);
+		fitness = pingpong();
+		
+		return fitness;
 	}
 };
 ////////////////////////////////////////// SORT //////////////////////////////////////////
@@ -164,19 +206,6 @@ struct SimpleMutation{
 	}
 
 };
-////////////////////////////////////////// EVALUATION //////////////////////////////////////////
-template<typename _Trait> 
-struct Eval
-{
-	double evaluate(Chromosome<_Trait>& chromosome){
-		double fitness = 0;
-		for(size_t i=0; i<chromosome.genes.size(); i++){
-			if(chromosome.genes[i].letter != _Trait::TARGET[i]){ fitness ++; }
-		}
-		return fitness;
-	}
-};
-
 template<typename _Trait> 
 class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 	using Random = typename _Trait::Random;
@@ -198,7 +227,12 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 				#ifndef NDEBUG
 					printAllRes();
 				#endif
-				if(population[0].fitness == 0){
+				// if(population[0].fitness == 0){
+				// 	std::cout << "Breaking !!" << std::endl;
+				// 	break;
+				// }
+				if(stagnation > _Trait::LIMIT_STAGNATION){
+					std::cout << "Breaking !!" << std::endl;
 					break;
 				}
 				crossover();
@@ -206,6 +240,12 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 					std::cout << "crossover" << std::endl;
 					printAllRes();
 				#endif
+				if( population[0].fitness >= bestAnswer ){
+					stagnation++;
+				}else{
+					stagnation=0;
+					bestAnswer = population[0].fitness;
+				}
 			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1));
 			evaluate();
 			sort();
@@ -224,7 +264,9 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 		std::vector<Chromosome<_Trait>> population;
 		std::vector<Chromosome<_Trait>> population2;
 		Random random;
-		size_t currentIterationCount = -1;
+		size_t currentIterationCount = 0;
+		long bestAnswer = _Trait::MAX_ERROR;
+		int stagnation = 0;
 
 		void evaluate(){
 			for(int i=0; i<_Trait::POP_SIZE; ++i){
@@ -273,3 +315,4 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			std::sort(population.begin(), population.end(), _Trait::Sort::sort);
 		}
 };
+#endif // GENETIC_H
