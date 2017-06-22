@@ -7,8 +7,8 @@
 #include <iostream>
 #include <algorithm>
 #include <cassert>
-
-
+#include <fstream>
+#include <unistd.h>
 // #include "irq.h"
 // #include "genetic.h"
 
@@ -68,11 +68,25 @@ struct Chromosome : _Trait::Evaluate {
 	std::string toString() const {
 
 		std::stringstream ss;
-		ss << "fitness = " << std::to_string(fitness) << " chromosome : ";
+		ss << "fitness >" << std::to_string(fitness) << "< chromosome : ";
 		for(size_t i=0; i<genes.size(); i++){
 			ss << genes[i].toString() << " ";
 		}
 		return ss.str();;
+	}
+	std::string toSaveForm() const {
+
+		std::stringstream ss;
+		for(size_t i=0; i<genes.size(); i++){
+			ss << genes[i].toString() << " ";
+		}
+		return ss.str();;
+	}
+	void saveState(){
+		std::ofstream myfile;
+		myfile.open (_Trait::SAVE_FILE_PATH, std::ios_base::app);
+		myfile << (*this).toSaveForm() << "\n";
+		myfile.close();
 	}
 };
 ////////////////////////////////////////// EVALUATION //////////////////////////////////////////
@@ -207,10 +221,24 @@ struct SimpleMutation{
 
 };
 template<typename _Trait> 
+struct BuildMyHeader{
+	static void buildHeader(){
+
+		truncate(_Trait::SAVE_FILE_PATH, 0);
+		std::ofstream saveStateFile;
+		saveStateFile.open (_Trait::SAVE_FILE_PATH);
+		saveStateFile << _Trait::NB_GENES << " " << _Trait::POP_SIZE << " " << _Trait::MAX_ITERATIONS << " " << _Trait::CROSSOVER_RATE << " " << _Trait::BEST_SELECTION_RATE << " " << _Trait::MUTATION_RATE << " "  << _Trait::LIMIT_STAGNATION << "\n";
+		saveStateFile.close();
+	}
+};
+template<typename _Trait> 
 class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 	using Random = typename _Trait::Random;
 	public:
 		GeneticAlgo() : population(_Trait::POP_SIZE), population2(), random() {
+			population2.reserve(_Trait::POP_SIZE);
+		};
+		GeneticAlgo(int i) : population(_Trait::POP_SIZE), population2(), random() {
 			population2.reserve(_Trait::POP_SIZE);
 		};
 		void start(){
@@ -246,7 +274,8 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 					stagnation=0;
 					bestAnswer = population[0].fitness;
 				}
-			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1));
+				saveState();
+			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1) && stagnation < _Trait::LIMIT_STAGNATION);
 			evaluate();
 			sort();
 			printAllRes();
@@ -313,6 +342,16 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 		}
 		void sort(){
 			std::sort(population.begin(), population.end(), _Trait::Sort::sort);
+		}
+		void saveState(){
+			// TODO
+
+			// Build header 
+			_Trait::BuildHeader::buildHeader();
+
+			for(size_t i=0;i<_Trait::POP_SIZE;i++){
+				population[i].saveState();
+			}		
 		}
 };
 #endif // GENETIC_H
