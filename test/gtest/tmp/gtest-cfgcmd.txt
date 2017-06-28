@@ -1,0 +1,1 @@
+cmd='/usr/bin/cmake;-GUnix Makefiles;/home/antoine/git/cpp_genetic_algo/test/gtest/src/gtest'

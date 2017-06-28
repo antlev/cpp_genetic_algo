@@ -8,52 +8,8 @@
 #include <unistd.h>
 
 static const constexpr char* irqConfPathFile = "./irq.conf";
-static const int __nbCore = 4;
-static const int __sizeOfMask = (( ((__nbCore - 1) / 8) + 1)* 8);
-static const std::string __irqPrefix = "/proc/irq/";
-static const std::string __irqSufix = "/smp_affinity";
 static std::vector<int> irqToConsider;
 
-struct IrqGene {
-    static MyRandom random;
-    std::vector<bool> mask ;
-
-    IrqGene() {
-        int index = random.getIntRange(0, __sizeOfMask);
-        for (int i = 0; i < index; ++i){
-            mask.push_back(0);
-        }       
-        for (int i = index; i < __sizeOfMask; ++i){
-            mask.push_back(1);
-        }
-    }
-    IrqGene(const IrqGene& irqGene){
-        random = irqGene.random;
-        mask = irqGene.mask;
-    }
-    IrqGene& operator=(const IrqGene& irqGene){
-        random = irqGene.random;
-        mask = irqGene.mask;
-        return *this; 
-    } 
-    std::string toString() const noexcept {        
-        std::stringstream ss;
-        for(size_t i=0; i<mask.size(); i++){
-            if(mask[i]){
-                ss << '1';
-            }else{
-                ss << '0';
-            }
-        }
-        return ss.str();
-    }
-    void mutation(){
-        int index = random.getIntRange(0, __sizeOfMask);
-        mask[index] = !mask[index];
-    }
-
-};
-MyRandom IrqGene::random;
 
 // Reads a configuration file listing irq to consider
 // and concats the masks of all the irq(s) (as a bitform) in an array
@@ -67,7 +23,7 @@ int readIRQConf(){
     ssize_t read;
 
     // save the actual irq configuration
-    system("saveIrq.sh"); 
+    system("../utils/saveIrq.sh"); 
 
     confFilePointer = fopen(irqConfPathFile, "r");
     if (confFilePointer == NULL)
@@ -89,7 +45,7 @@ int setIrq(Chromosome<_Trait>& ch){
 
     for(size_t i=0; i<irqToConsider.size(); i++){
         std::stringstream ss;
-        ss << __irqPrefix << irqToConsider[i] << __irqSufix;
+        ss << _Trait::IRQ_PREFIX << irqToConsider[i] << _Trait::IRQ_SUFFIX;
         irqFilePath = ss.str();
         fs.open(irqFilePath, std::fstream::in);
         fs << ch.genes[i].toString();

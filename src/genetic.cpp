@@ -62,35 +62,17 @@ struct Trait {
 	using Crossover = SinglePointCrossover<Trait>;
 	using Mutation = SimpleMutation<Trait>;
 	using Sort = Minimise<Trait>;
-	// using Evaluate = EvalHelloWorld<Trait>;
-	using Evaluate = EvalIrq<Trait>;
-	using Gene = IrqGene;
-	
+	using Evaluate = EvalHelloWorld<Trait>;
+	using Gene = MyGene<Trait>;
+
 	static Random random;
 };
 Trait::Random Trait::random;
 
 int main(int argc, char* argv[]){
- //    (void)argc;
- //    (void)argv;
 
- //    readIRQConf(int* irqToConsiderLength, int sizeofMask);
-
-
-	// GeneticAlgo<Trait> gen;
-
-	// gen.start();
     (void)argc;
     (void)argv;
-
-    readIRQConf();
-
-    // std::cout << "DEBUG irqToConsider : " << std::endl;
-    // for (size_t i = 0; i < irqToConsider.size(); ++i)
-    // {
-    // 	std::cout << "[" << irqToConsider[i] << "]";
-    // }
-    // std::cout << std::endl;
 
 	GeneticAlgo<Trait> gen;
 

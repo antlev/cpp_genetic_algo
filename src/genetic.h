@@ -9,14 +9,12 @@
 #include <cassert>
 #include <fstream>
 #include <unistd.h>
-// #include "irq.h"
-// #include "genetic.h"
 
-long pingpong();
+// long pingpong();
 struct MyGene ;
 struct MyRandom {
-	static constexpr int ASCII_DOWN_LIMIT = 32;
-	static constexpr int ASCII_UP_LIMIT = 126;
+	static constexpr int ASCII_DOWN_LIMIT = 97;
+	static constexpr int ASCII_UP_LIMIT = 122;
 
 	MyRandom() : r(), gen(r()), get_real_between_one_and_zero(0, 1), get_int_ascii(ASCII_DOWN_LIMIT,ASCII_UP_LIMIT), get_int_between_one_and_zero(0,1) {
 	}
@@ -40,10 +38,6 @@ struct MyRandom {
     int getIntRange(int downlimit, int uplimit){
     	return std::uniform_int_distribution<int>(downlimit, uplimit)(gen);
     }
-   	// Return a real between 1 and 0
-    int getIntBetweenOneAndZero() {
-    	return get_int_between_one_and_zero(gen);
-    }
 
 	private:
     std::random_device r;
@@ -55,18 +49,32 @@ struct MyRandom {
 
 template<typename _Trait> 
 struct Chromosome : _Trait::Evaluate {
-	
-	typename std::vector<typename _Trait::Gene> genes;
+	using Gene = typename _Trait::Gene;
+	using Random = typename _Trait::Random;
+
+	Random& random;
+	typename std::vector<Gene> genes;
 	double fitness;
 
-	Chromosome() : genes(_Trait::NB_GENES), fitness(_Trait::MAX_ERROR) {
+
+	Chromosome(Random& random) : random(random), genes(), fitness(_Trait::MAX_ERROR) {
+		std::cout << "Chromosome::Chromosome()" << std::endl;
+		for (int i = 0; i < _Trait::NB_GENES; ++i){
+			genes.push_back(Gene(random));
+		}
 	}
+
+	Chromosome& operator=(const Chromosome& c) {
+        random = c.random;
+        genes = c.genes;
+        fitness = c.fitness;
+        return *this; 
+    }
 
 	void evaluateFitness() {
 		fitness = _Trait::Evaluate::evaluate(*this);
 	}
 	std::string toString() const {
-
 		std::stringstream ss;
 		ss << "fitness >" << std::to_string(fitness) << "< chromosome : ";
 		for(size_t i=0; i<genes.size(); i++){
@@ -88,6 +96,13 @@ struct Chromosome : _Trait::Evaluate {
 		myfile << (*this).toSaveForm() << "\n";
 		myfile.close();
 	}
+	void recoverChromosome(char* line){
+		for(size_t i=0; i<_Trait::NB_GENES; ++i){
+			for(size_t j=0; j<_Trait::SIZE_OF_MASK; ++j){
+				(*this).genes[i].mask[j] = line[i*_Trait::SIZE_OF_MASK+j];
+			}
+		}
+	}
 };
 ////////////////////////////////////////// EVALUATION //////////////////////////////////////////
 template<typename _Trait> 
@@ -101,23 +116,23 @@ struct EvalHelloWorld
 		return fitness;
 	}
 };
-template<typename _Trait> 
-struct EvalIrq
-{
-	double evaluate(Chromosome<_Trait>& chromosome){
-		double fitness = 0;
+// template<typename _Trait> 
+// struct EvalIrq
+// {
+// 	double evaluate(Chromosome<_Trait>& chromosome){
+// 		double fitness = 0;
 
-		setIrq(chromosome);
-		fitness = pingpong();
+// 		setIrq(chromosome);
+// 		fitness = pingpong();
 		
-		return fitness;
-	}
-};
+// 		return fitness;
+// 	}
+// };
 ////////////////////////////////////////// SORT //////////////////////////////////////////
 template<typename _Trait> 
 struct Minimise
 {	
-	static bool sort(Chromosome<_Trait>& c1, Chromosome<_Trait>& c2){
+	static bool sort(const Chromosome<_Trait>& c1, const Chromosome<_Trait>& c2){
 		return c1.fitness < c2.fitness ;
 	}
 };
@@ -133,29 +148,26 @@ struct Maximise
 template<typename _Trait> 
 struct SimpleSelection{
 	// Take a sorted population and select one randomly using the BEST_SELECTION_RATE variable
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, MyRandom* random){
+	static std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> selection(std::vector<Chromosome<_Trait>>& sortedPopulation, MyRandom* random){
 		int rdm = random->getIntRange(0, _Trait::POP_SIZE-1);
 		int rdm2 = random->getIntRange(0, _Trait::POP_SIZE-1);
 		assert(rdm >= 0 && rdm < _Trait::POP_SIZE);
 		assert(rdm2 >= 0 && rdm < _Trait::POP_SIZE);
-		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[rdm], sortedPopulation[rdm2]);
-		return pairToReturn;
+		return std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&>(sortedPopulation[rdm], sortedPopulation[rdm2]);
 	}
 };
 template<typename _Trait> 
 struct SimpleSelectionOfBests{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, MyRandom* random){
+	static std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> selection(std::vector<Chromosome<_Trait>>& sortedPopulation, MyRandom* random){
 		int rdm = random->getIntRange(0, _Trait::POP_SIZE*_Trait::BEST_SELECTION_RATE-1);
 		int rdm2 = random->getIntRange(0, _Trait::POP_SIZE*_Trait::BEST_SELECTION_RATE-1);
-		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[rdm], sortedPopulation[rdm2]);
-		return pairToReturn;
+		return std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&>(sortedPopulation[rdm], sortedPopulation[rdm2]);
 	}
 };
 template<typename _Trait> 
 struct SelectionOfFirstBests{
 	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> selection(std::vector<Chromosome<_Trait>> sortedPopulation, int i){
-		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> pairToReturn(sortedPopulation[i], sortedPopulation[i+1]);
-		return pairToReturn;
+		return std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&>(sortedPopulation[i], sortedPopulation[i+1]);
 	}
 };
 
@@ -174,37 +186,47 @@ struct RouletteSelection{
 ////////////////////////////////////////// CROSSOVER ////////////////////////////////////////// 
 template<typename _Trait> 
 struct SinglePointCrossover{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(const std::pair<Chromosome<_Trait>, Chromosome<_Trait>>& parents, MyRandom* random){		
-		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> children;
+	static std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> crossover(std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&>& parents, MyRandom* random){		
 		int randomCursor = random->getIntRange(1, _Trait::NB_GENES - 2);
-		for(int i=0; i<randomCursor; i++){
-			children.first.genes[i] = parents.first.genes[i];
-			children.second.genes[i] = parents.second.genes[i];
-		}
-		for(int i=randomCursor; i<_Trait::NB_GENES; i++){
-			children.first.genes[i] = parents.second.genes[i];
-			children.second.genes[i] = parents.first.genes[i];
-		}			
-		return std::move(children);
-	}
-};
-template<typename _Trait> 
-struct TwoPointCrossover{
-	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents, MyRandom* random){		
-		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> children;
-		int randomCursor = *random->getIntRange(1, _Trait::NB_GENES - 3);
-		int randomCursor2 = *random->getIntRange(randomCursor+1, _Trait::NB_GENES - 2);
+		Chromosome<_Trait>& child1 = parents.first;
+		Chromosome<_Trait>& child2 = parents.second;
+		#ifndef NDEBUG
+			std::cout << "Before crossover child 1 : " << child1.toString() << " child 2 : " << child2.toString() << std::endl;
+		#endif
+		// for(int i=0; i<randomCursor; i++){
+		// 	child1.genes[i] = parents.first.genes[i];
+		// 	child2.genes[i] = parents.second.genes[i];
+		// }
 
-		children.first.genes = parents.first.genes;
-		children.second.genes = parents.second.genes;
-		assert(randomCursor < randomCursor2);
-		for(int i=randomCursor; i<randomCursor2; i++){
-			children.first.genes[i] = parents.second.genes[i];
-			children.second.genes[i] = parents.first.genes[i];
-		}
-		return children;
+
+		for(int i=randomCursor; i<_Trait::NB_GENES; i++){
+			typename _Trait::Gene tmp = child1.genes[i];
+			child1.genes[i] = parents.second.genes[i];
+			child2.genes[i] = tmp;
+		}	
+		#ifndef NDEBUG
+			std::cout << " After crossover child 1 : " << child1.toString() << " child 2 : " << child2.toString() << std::endl;
+		#endif
+		return std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&>(child1, child2);
 	}
 };
+// template<typename _Trait> 
+// struct TwoPointCrossover{
+// 	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents, MyRandom* random){		
+// 		std::pair<Chromosome<_Trait>, Chromosome<_Trait>> children;
+// 		int randomCursor = *random->getIntRange(1, _Trait::NB_GENES - 3);
+// 		int randomCursor2 = *random->getIntRange(randomCursor+1, _Trait::NB_GENES - 2);
+
+// 		children.first.genes = parents.first.genes;
+// 		children.second.genes = parents.second.genes;
+// 		assert(randomCursor < randomCursor2);
+// 		for(int i=randomCursor; i<randomCursor2; i++){
+// 			children.first.genes[i] = parents.second.genes[i];
+// 			children.second.genes[i] = parents.first.genes[i];
+// 		}
+// 		return children;
+// 	}
+// };
 template<typename _Trait> 
 struct MultiPointsCrossover{
 	static std::pair<Chromosome<_Trait>, Chromosome<_Trait>> crossover(std::pair<Chromosome<_Trait>, Chromosome<_Trait>> parents, MyRandom* random){		
@@ -223,8 +245,7 @@ struct SimpleMutation{
 template<typename _Trait> 
 struct BuildMyHeader{
 	static void buildHeader(){
-
-		truncate(_Trait::SAVE_FILE_PATH, 0);
+		assert(truncate(_Trait::SAVE_FILE_PATH, 0) == 0);
 		std::ofstream saveStateFile;
 		saveStateFile.open (_Trait::SAVE_FILE_PATH);
 		saveStateFile << _Trait::NB_GENES << " " << _Trait::POP_SIZE << " " << _Trait::MAX_ITERATIONS << " " << _Trait::CROSSOVER_RATE << " " << _Trait::BEST_SELECTION_RATE << " " << _Trait::MUTATION_RATE << " "  << _Trait::LIMIT_STAGNATION << "\n";
@@ -232,54 +253,119 @@ struct BuildMyHeader{
 	}
 };
 template<typename _Trait> 
+struct RecoverMyHeader{
+	static void recoverHeader(){
+		FILE *stream;
+		char *line = NULL;
+		size_t len = 0;
+		ssize_t nread;
+
+		stream = fopen(_Trait::SAVE_FILE_PATH, "r");
+		if (stream == NULL) {
+		   perror("fopen");
+		   exit(EXIT_FAILURE);
+		}
+		nread = getline(&line, &len, stream);
+		fwrite(line, nread, 1, stdout);
+
+		int nbGenes, popSize, maxIterations, stagnationLimit;
+		float crossoverRate, bestSelectionRate, mutationRate;
+		sscanf (line,"%d %d %d %f %f %f %d",&nbGenes, &popSize, &maxIterations, &crossoverRate, &bestSelectionRate, &mutationRate, &stagnationLimit );
+		free(line);
+		fclose(stream);
+
+		if(nbGenes != _Trait::NB_GENES || popSize != _Trait::POP_SIZE || maxIterations != _Trait::MAX_ITERATIONS || 
+			crossoverRate != _Trait::CROSSOVER_RATE || bestSelectionRate != _Trait::BEST_SELECTION_RATE || mutationRate != _Trait::MUTATION_RATE || stagnationLimit != _Trait::LIMIT_STAGNATION){
+			std::cout << "Header is not conform" << std::endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+};
+template<typename _Trait> 
 class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 	using Random = typename _Trait::Random;
 	public:
-		GeneticAlgo() : population(_Trait::POP_SIZE), population2(), random() {
+		GeneticAlgo() : random(), population(), population2(), currentIterationCount(0), bestFitness(_Trait::MAX_ERROR), stagnation(0) {
+			for (int i = 0; i < _Trait::POP_SIZE; ++i)
+			{
+				population.push_back(Chromosome<_Trait>(random));
+			}
 			population2.reserve(_Trait::POP_SIZE);
 		};
 		GeneticAlgo(int i) : population(_Trait::POP_SIZE), population2(), random() {
 			population2.reserve(_Trait::POP_SIZE);
 		};
 		void start(){
-		#ifndef NDEBUG
-			printAllRes();
-		#endif
+			evaluate();
+			sort();
+			#ifndef NDEBUG
+				printAllRes();
+			#endif
 			do {
 				#ifndef NDEBUG
 					printAllRes();
 					std::cout << "evaluation - sort" << std::endl;
+				#endif
+
+				crossover();
+				#ifndef NDEBUG
+					std::cout << "crossover" << std::endl;
+					printAllRes();
 				#endif
 				evaluate();
 				sort();
 				#ifndef NDEBUG
 					printAllRes();
 				#endif
-				// if(population[0].fitness == 0){
-				// 	std::cout << "Breaking !!" << std::endl;
-				// 	break;
-				// }
-				if(stagnation > _Trait::LIMIT_STAGNATION){
-					std::cout << "Breaking !!" << std::endl;
-					break;
-				}
-				crossover();
-				#ifndef NDEBUG
-					std::cout << "crossover" << std::endl;
-					printAllRes();
-				#endif
-				if( population[0].fitness >= bestAnswer ){
+
+				if( population[0].fitness >= bestFitness ){
 					stagnation++;
 				}else{
 					stagnation=0;
-					bestAnswer = population[0].fitness;
+					bestFitness = population[0].fitness;
+					std::cout << "New best answer >" << population[0].toString() << "< fitness :" << bestFitness << " iterations :" << currentIterationCount << std::endl;				
+					saveState();
 				}
-				saveState();
-			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1) && stagnation < _Trait::LIMIT_STAGNATION);
+				if(stagnation > _Trait::LIMIT_STAGNATION){
+					std::cout << "Stagnation !!" << std::endl;
+					// break;
+				}
+			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1));
 			evaluate();
 			sort();
 			printAllRes();
 		}
+		void recoverState(){
+			_Trait::RecoverHeader::recoverHeader();
+
+			int nbGenes, popSize, maxIterations, stagnationLimit;
+			float crossoverRate, bestSelectionRate, mutationRate;
+
+			FILE *stream;
+			char *line = NULL;
+			size_t len = 0;
+			ssize_t nread;
+
+			stream = fopen(_Trait::SAVE_FILE_PATH, "r");
+			if (stream == NULL) {
+			   perror("fopen");
+			   exit(EXIT_FAILURE);
+			}
+
+			nread = getline(&line, &len, stream);
+			fwrite(line, nread, 1, stdout);
+
+			sscanf (line,"%d %d %d %f %f %f %d",&nbGenes, &popSize, &maxIterations, &crossoverRate, &bestSelectionRate, &mutationRate, &stagnationLimit );
+			
+			for(size_t i=0;i<_Trait::POP_SIZE;i++){
+				nread = getline(&line, &len, stream);
+				population[i].recoverChromosome(line);
+			}
+			free(line);
+			fclose(stream);
+		}
+		long getBestFitness(){ return bestFitness; }
+		size_t getCurrentIterationCount(){ return currentIterationCount; }
 	private:
 		void printRes() {
 			std::cout << "Best answer found in " << currentIterationCount << " iterations : " << population[0]  << std::endl;
@@ -290,12 +376,12 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 				std::cout << "[" << i << "] >" << population[i].toString() << std::endl;
 			}
 		}
+		Random random;
 		std::vector<Chromosome<_Trait>> population;
 		std::vector<Chromosome<_Trait>> population2;
-		Random random;
-		size_t currentIterationCount = 0;
-		long bestAnswer = _Trait::MAX_ERROR;
-		int stagnation = 0;
+		size_t currentIterationCount;
+		long bestFitness;
+		int stagnation;
 
 		void evaluate(){
 			for(int i=0; i<_Trait::POP_SIZE; ++i){
@@ -315,24 +401,22 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			assert(population.size() != 0);
 
 			while(population2.size() <= _Trait::POP_SIZE*_Trait::CROSSOVER_RATE){
-				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> parents = _Trait::Selection::selection(population, &random);
-				std::pair< Chromosome<_Trait>,  Chromosome<_Trait>> children = _Trait::Crossover::crossover(parents, &random);
+				std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> parents = _Trait::Selection::selection(population, &random);
+				std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> children = _Trait::Crossover::crossover(parents, &random);
 				#ifndef NDEBUG
-					std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+					// std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
 				#endif		
 				mutation(children.first);
 				mutation(children.second);
 				#ifndef NDEBUG
-					std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+					// std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
 				#endif		
 				population2.push_back(children.first);
 				population2.push_back(children.second);
 
 			}
-			int i=0;
 			while(population2.size() <= _Trait::POP_SIZE){
-				std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::SelectionOfBests::selection(population, i);
-				i+=2;
+				std::pair< Chromosome<_Trait>, Chromosome<_Trait>> nonChangeIndiv = _Trait::Selection::selection(population, &random);
 				population2.push_back(nonChangeIndiv.first);
 				population2.push_back(nonChangeIndiv.second);
 
@@ -344,14 +428,12 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			std::sort(population.begin(), population.end(), _Trait::Sort::sort);
 		}
 		void saveState(){
-			// TODO
-
 			// Build header 
 			_Trait::BuildHeader::buildHeader();
 
 			for(size_t i=0;i<_Trait::POP_SIZE;i++){
 				population[i].saveState();
-			}		
+			}	
 		}
 };
 #endif // GENETIC_H
