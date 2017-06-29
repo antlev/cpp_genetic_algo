@@ -10,7 +10,6 @@
 #include <fstream>
 #include <unistd.h>
 
-// long pingpong();
 struct MyGene ;
 struct MyRandom {
 	static constexpr int ASCII_DOWN_LIMIT = 32;
@@ -72,6 +71,7 @@ struct Chromosome : _Trait::Evaluate {
     }
 
 	void evaluateFitness() {
+		// fitness = _Trait::Evaluate::evaluate(*this);
 		fitness = _Trait::Evaluate::evaluate(*this);
 	}
 	std::string toString() const {
@@ -104,30 +104,6 @@ struct Chromosome : _Trait::Evaluate {
 		}
 	}
 };
-////////////////////////////////////////// EVALUATION //////////////////////////////////////////
-template<typename _Trait> 
-struct EvalHelloWorld
-{
-	double evaluate(Chromosome<_Trait>& chromosome){
-		double fitness = 0;
-		for(size_t i=0; i<chromosome.genes.size(); i++){
-			if(chromosome.genes[i].letter != _Trait::TARGET[i]){ fitness ++; }
-		}
-		return fitness;
-	}
-};
-// template<typename _Trait> 
-// struct EvalIrq
-// {
-// 	double evaluate(Chromosome<_Trait>& chromosome){
-// 		double fitness = 0;
-
-// 		setIrq(chromosome);
-// 		fitness = pingpong();
-		
-// 		return fitness;
-// 	}
-// };
 ////////////////////////////////////////// SORT //////////////////////////////////////////
 template<typename _Trait> 
 struct Minimise

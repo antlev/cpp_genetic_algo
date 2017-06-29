@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "../src/genetic.h"
+struct Trait;
 
 struct MyGene {
 	MyRandom& random;
@@ -31,6 +32,19 @@ struct MyGene {
 constexpr size_t stringSize(const char* str){
     return (*str == 0) ? 0 : stringSize(str + 1) + 1;
 }
+
+template<typename _Trait> 
+struct EvalHelloWorld
+{
+	double evaluate(Chromosome<_Trait>& chromosome){
+		double fitness = 0;
+		for(size_t i=0; i<chromosome.genes.size(); i++){
+			if(chromosome.genes[i].letter != _Trait::TARGET[i]){ fitness ++; }
+		}
+		return fitness;
+	}
+};
+
 struct Trait {
 	// HELLO WORLD
 	static constexpr const char* TARGET = "Hello, World!";
@@ -69,6 +83,8 @@ struct Trait {
 	}
 };
 Trait::Random Trait::random;
+
+
 
 TEST (hello_world_test, toto) { 
 	GeneticAlgo<Trait> gen;

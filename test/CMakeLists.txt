@@ -40,3 +40,4 @@ include_directories("${source_dir}/googletest/include"
 
 add_test_helper(myRandom random_test.cpp)
 add_test_helper(hello_world hello_world_test.cpp)
+add_test_helper(irq irq_test.cpp)
