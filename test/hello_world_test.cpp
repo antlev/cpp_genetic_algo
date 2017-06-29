@@ -26,7 +26,6 @@ struct MyGene {
 	void mutation(){
 		letter = getRandomLetter();
 	}
-
 };
 
 constexpr size_t stringSize(const char* str){
@@ -34,7 +33,7 @@ constexpr size_t stringSize(const char* str){
 }
 struct Trait {
 	// HELLO WORLD
-	static constexpr const char* TARGET = "abcabc";
+	static constexpr const char* TARGET = "Hello, World!";
 	static constexpr int NB_GENES = stringSize(TARGET);
 	static constexpr const char* SAVE_FILE_PATH = "../save/state.save";
 
@@ -43,19 +42,12 @@ struct Trait {
 	static constexpr long MAX_ITERATIONS = 100000;
 	static constexpr int LIMIT_STAGNATION = 50000;
 	
-	// static constexpr int POP_SIZE = 20;
-	// static constexpr double CROSSOVER_RATE = 0.90; // % of children produce from a crossover
-	// static constexpr double BEST_SELECTION_RATE = 0.25; // % of population consider as best
-	// static constexpr double MUTATION_RATE = 0.70;
-
-	static constexpr int POP_SIZE = 18;
-	static constexpr double CROSSOVER_RATE = 0.70; // % of children produce from a crossover
-	static constexpr double MUTATION_RATE = 0.70;
+	static constexpr int POP_SIZE = 20;
+	static constexpr double CROSSOVER_RATE = 0.90; // % of children produce from a crossover
 	static constexpr double BEST_SELECTION_RATE = 0.25; // % of population consider as best
+	static constexpr double MUTATION_RATE = 0.70;
 
 	using Selection = SimpleSelection<Trait>;
-	// using Selection = SimpleSelectionOfBests<Trait>;
-	// using SelectionOfBests = SelectionOfFirstBests<Trait>;
 	using Crossover = SinglePointCrossover<Trait>;
 	using Mutation = SimpleMutation<Trait>;
 	using Sort = Minimise<Trait>;
@@ -67,6 +59,14 @@ struct Trait {
 
 	using Random = MyRandom;
 	static Random random;
+
+	static bool isFinished(long bestFitness, size_t iterations, int stagnation){
+		if(bestFitness == 0 || iterations == MAX_ITERATIONS || stagnation == LIMIT_STAGNATION){
+			return true;
+		}else{
+			return false;
+		}
+	}
 };
 Trait::Random Trait::random;
 

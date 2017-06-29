@@ -13,8 +13,8 @@
 // long pingpong();
 struct MyGene ;
 struct MyRandom {
-	static constexpr int ASCII_DOWN_LIMIT = 97;
-	static constexpr int ASCII_UP_LIMIT = 122;
+	static constexpr int ASCII_DOWN_LIMIT = 32;
+	static constexpr int ASCII_UP_LIMIT = 126;
 
 	MyRandom() : r(), gen(r()), get_real_between_one_and_zero(0, 1), get_int_ascii(ASCII_DOWN_LIMIT,ASCII_UP_LIMIT), get_int_between_one_and_zero(0,1) {
 	}
@@ -238,7 +238,14 @@ template<typename _Trait>
 struct SimpleMutation{
 	static void mutation(Chromosome<_Trait>& chromosome, MyRandom* random){
 		int indexGene = random->getIntRange(0, _Trait::NB_GENES-1);
+		typename _Trait::Gene tmpGene = chromosome.genes[indexGene];
+		chromosome.evaluateFitness();
+		int tmpFitness = chromosome.fitness;
 		chromosome.genes[indexGene].mutation();
+		chromosome.evaluateFitness();
+		if( tmpFitness < chromosome.fitness ){
+			chromosome.genes[indexGene] = tmpGene;
+		}
 	}
 
 };
@@ -326,11 +333,7 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 					std::cout << "New best answer >" << population[0].toString() << "< fitness :" << bestFitness << " iterations :" << currentIterationCount << std::endl;				
 					saveState();
 				}
-				if(stagnation > _Trait::LIMIT_STAGNATION){
-					std::cout << "Stagnation !!" << std::endl;
-					// break;
-				}
-			} while(++currentIterationCount < (_Trait::MAX_ITERATIONS-1));
+			} while(!_Trait::isFinished(bestFitness, currentIterationCount++, stagnation));
 			evaluate();
 			sort();
 			printAllRes();
