@@ -57,7 +57,6 @@ struct Chromosome : _Trait::Evaluate {
 
 
 	Chromosome(Random& random) : random(random), genes(), fitness(_Trait::MAX_ERROR) {
-		std::cout << "Chromosome::Chromosome()" << std::endl;
 		for (int i = 0; i < _Trait::NB_GENES; ++i){
 			genes.push_back(Gene(random));
 		}
@@ -71,7 +70,6 @@ struct Chromosome : _Trait::Evaluate {
     }
 
 	void evaluateFitness() {
-		// fitness = _Trait::Evaluate::evaluate(*this);
 		fitness = _Trait::Evaluate::evaluate(*this);
 	}
 	std::string toString() const {
@@ -86,7 +84,7 @@ struct Chromosome : _Trait::Evaluate {
 
 		std::stringstream ss;
 		for(size_t i=0; i<genes.size(); i++){
-			ss << genes[i].toString() << " ";
+			ss << genes[i].toString();
 		}
 		return ss.str();;
 	}
@@ -97,9 +95,11 @@ struct Chromosome : _Trait::Evaluate {
 		myfile.close();
 	}
 	void recoverChromosome(char* line){
+	// void recoverChromosome(char* line, size_t len){
 		for(size_t i=0; i<_Trait::NB_GENES; ++i){
 			for(size_t j=0; j<_Trait::SIZE_OF_MASK; ++j){
-				(*this).genes[i].mask[j] = line[i*_Trait::SIZE_OF_MASK+j];
+				std::cout << "debug recover : " << line[i*_Trait::SIZE_OF_MASK+j] << std::endl;
+				(*this).genes[i].mask[j] = (line[i*_Trait::SIZE_OF_MASK+j] != '0');
 			}
 		}
 	}
@@ -228,7 +228,8 @@ struct SimpleMutation{
 template<typename _Trait> 
 struct BuildMyHeader{
 	static void buildHeader(){
-		assert(truncate(_Trait::SAVE_FILE_PATH, 0) == 0);
+		truncate(_Trait::SAVE_FILE_PATH, 0);
+		// assert(truncate(_Trait::SAVE_FILE_PATH, 0) != -1);
 		std::ofstream saveStateFile;
 		saveStateFile.open (_Trait::SAVE_FILE_PATH);
 		saveStateFile << _Trait::NB_GENES << " " << _Trait::POP_SIZE << " " << _Trait::MAX_ITERATIONS << " " << _Trait::CROSSOVER_RATE << " " << _Trait::BEST_SELECTION_RATE << " " << _Trait::MUTATION_RATE << " "  << _Trait::LIMIT_STAGNATION << "\n";
@@ -249,11 +250,11 @@ struct RecoverMyHeader{
 		   exit(EXIT_FAILURE);
 		}
 		nread = getline(&line, &len, stream);
-		fwrite(line, nread, 1, stdout);
+		// fwrite(line, nread, 1, stdout);
 
 		int nbGenes, popSize, maxIterations, stagnationLimit;
-		float crossoverRate, bestSelectionRate, mutationRate;
-		sscanf (line,"%d %d %d %f %f %f %d",&nbGenes, &popSize, &maxIterations, &crossoverRate, &bestSelectionRate, &mutationRate, &stagnationLimit );
+		double crossoverRate, bestSelectionRate, mutationRate;
+		sscanf (line,"%d %d %d %lf %lf %lf %d",&nbGenes, &popSize, &maxIterations, &crossoverRate, &bestSelectionRate, &mutationRate, &stagnationLimit );
 		free(line);
 		fclose(stream);
 
@@ -275,21 +276,22 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			}
 			population2.reserve(_Trait::POP_SIZE);
 		};
-		GeneticAlgo(int i) : population(_Trait::POP_SIZE), population2(), random() {
+		GeneticAlgo(int i) : random(), population(), population2(), currentIterationCount(0), bestFitness(_Trait::MAX_ERROR), stagnation(0) {
+			for (int i = 0; i < _Trait::POP_SIZE; ++i)
+			{
+				population.push_back(Chromosome<_Trait>(random));
+			}
 			population2.reserve(_Trait::POP_SIZE);
+			recoverState();
 		};
 		void start(){
+		    saveState();
 			evaluate();
 			sort();
 			#ifndef NDEBUG
 				printAllRes();
 			#endif
 			do {
-				#ifndef NDEBUG
-					printAllRes();
-					std::cout << "evaluation - sort" << std::endl;
-				#endif
-
 				crossover();
 				#ifndef NDEBUG
 					std::cout << "crossover" << std::endl;
@@ -327,17 +329,18 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 
 			stream = fopen(_Trait::SAVE_FILE_PATH, "r");
 			if (stream == NULL) {
-			   perror("fopen");
+			   perror(_Trait::SAVE_FILE_PATH);
 			   exit(EXIT_FAILURE);
 			}
 
 			nread = getline(&line, &len, stream);
-			fwrite(line, nread, 1, stdout);
+			// fwrite(line, nread, 1, stdout);
 
 			sscanf (line,"%d %d %d %f %f %f %d",&nbGenes, &popSize, &maxIterations, &crossoverRate, &bestSelectionRate, &mutationRate, &stagnationLimit );
 			
 			for(size_t i=0;i<_Trait::POP_SIZE;i++){
 				nread = getline(&line, &len, stream);
+				// population[i].recoverChromosome(line, len);
 				population[i].recoverChromosome(line);
 			}
 			free(line);
@@ -350,7 +353,6 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 			std::cout << "Best answer found in " << currentIterationCount << " iterations : " << population[0]  << std::endl;
 		}
 		void printAllRes(){
-			std::cout << "Best answer found in " << currentIterationCount << " iterations : " << population[0]  << std::endl;
 			for(int i=0; i<_Trait::POP_SIZE; i++){
 				std::cout << "[" << i << "] >" << population[i].toString() << std::endl;
 			}
@@ -370,9 +372,12 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 		void mutation(Chromosome<_Trait>& ch){
 			if( random.getRealBetweenOneAndZero() < _Trait::MUTATION_RATE){
 				#ifndef NDEBUG
+					
+					std::cout << "Before mutation : " << ch.toString() <<  std::endl;
 					std::cout << "MUTATION !!! " <<  std::endl;
 				#endif		
 				_Trait::Mutation::mutation(ch, &random);
+				std::cout << "After  mutation : " << ch.toString() <<  std::endl;
 			}
 		}
 		void crossover(){
@@ -383,12 +388,12 @@ class GeneticAlgo : _Trait::Selection, _Trait::Crossover, _Trait::Mutation {
 				std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> parents = _Trait::Selection::selection(population, &random);
 				std::pair<Chromosome<_Trait>&, Chromosome<_Trait>&> children = _Trait::Crossover::crossover(parents, &random);
 				#ifndef NDEBUG
-					// std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+					std::cout << "Children produced by crossover  : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
 				#endif		
 				mutation(children.first);
 				mutation(children.second);
 				#ifndef NDEBUG
-					// std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
+					std::cout << "        Children after mutation : child 1 : " << children.first.toString() << " child 2 : " << children.second.toString() << std::endl;
 				#endif		
 				population2.push_back(children.first);
 				population2.push_back(children.second);

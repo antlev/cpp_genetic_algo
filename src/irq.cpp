@@ -1,5 +1,87 @@
-#include "genetic.h"
-#include "irq.h"
+#include "gtest/gtest.h"
+#include <iostream>
+#include "../src/genetic.h"
+#include <fstream>
+#include <stdio.h>
+#include <unistd.h>
+struct Trait ;
+
+static const constexpr char* irqConfPathFile = "../conf/irq.conf";
+static const constexpr char* saveIrqPathFile = "../utils/saveIrq.sh";
+static std::vector<int> irqToConsider;
+
+// Reads a configuration file listing irq to consider
+// and concats the masks of all the irq(s) (as a bitform) in an array
+// The array will represent our first solution
+// Set irqToConsiderLength
+// Return irqToConsider that contains the irq's mask to be set by the algo
+template<typename _Trait> 
+int readIRQConf(){
+    FILE * confFilePointer;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    // save the actual irq configuration
+    if( system("../utils/saveIrq.sh") != 0 ){
+        exit(-1);
+    } 
+    confFilePointer = fopen(irqConfPathFile, "r");
+    if (confFilePointer == NULL)
+        exit(-1);
+    // Count the number of lines in file
+    int i=0;
+    while ((read = getline(&line, &len, confFilePointer)) != -1) { 
+        irqToConsider.push_back(std::stoi(line));
+        ++i;
+    }
+    if(i != _Trait::NB_GENES){
+        std::cout << "irqConfile is not compatible with NB_GENES" << std::endl;
+        exit(-1);
+    } 
+
+    fclose(confFilePointer);
+    return 0;
+}
+
+template<typename _Trait> 
+int setIrq(Chromosome<_Trait>& ch){
+    std::fstream fs;
+    std::string irqFilePath;
+    for(size_t i=0; i<irqToConsider.size(); i++){
+        std::stringstream ss;
+        ss << _Trait::IRQ_PREFIX << irqToConsider[i] << _Trait::IRQ_SUFFIX;
+        irqFilePath = ss.str();
+        fs.open(irqFilePath, std::fstream::in);
+        fs << ch.genes[i].toString();
+        fs.close();
+    }
+    return 0;
+}
+
+long pingpong(){
+    std::cout << "Starting pingpong...";
+    int pipefd[2];
+    pipe(pipefd);
+    int ret = fork();
+    if (ret == 0)
+    {   // child
+        close(pipefd[0]);    // close reading end in the child
+        dup2(pipefd[1], 1);  // send stdout to the pipe
+        dup2(pipefd[1], 2);  // send stderr to the pipe
+        close(pipefd[1]);    // this descriptor is no longer needed
+        execlp("../utils/pingpong.sh", "pingpong.sh", 0); // return int in a nanosecond
+        exit(0);
+    }
+    else
+    {   // parent
+        char buffer[1024];
+        close(pipefd[1]);  // close the write end of the pipe in the parent
+        while (read(pipefd[0], buffer, sizeof(buffer)) != 0){
+        }
+        std::cout << "Result >" << atol(buffer) << std::endl;
+        return atol(buffer);
+    }
+}
 
 template<typename _Trait> 
 struct IrqGene {
@@ -34,71 +116,73 @@ struct IrqGene {
         return ss.str();
     }
     void mutation(){
-        int index = random.getIntRange(0, _Trait::SIZE_OF_MASK);
+        int index = (_Trait::SIZE_OF_MASK-1) - random.getIntRange(0, _Trait::NB_CORE-1);
         mask[index] = !mask[index];
     }
 
 };
+template<typename _Trait> 
+struct EvalIrq
+{
+    double evaluate(Chromosome<_Trait>& chromosome){
+        double fitness = 0;
+        setIrq(chromosome);
+        fitness = pingpong();   
+        return fitness;
+    }
+};
 
 struct Trait {
 
-	static constexpr int NB_GENES = IRQ_NUMBER;
+    static constexpr int NB_GENES = 27;
 
-	// Configuration
-	static constexpr const long MAX_ERROR = 100000;
-	static constexpr int POP_SIZE = 6;
-	static constexpr long MAX_ITERATIONS = 10000;
-	static constexpr double CROSSOVER_RATE = 0.90; // % of children produce from a crossover
-	static constexpr double BEST_SELECTION_RATE = 0.25; // % of population consider as best
-	static constexpr double MUTATION_RATE = 0.70;
-	static constexpr int LIMIT_STAGNATION = 50000;
+    // Configuration
+    static constexpr const long MAX_ERROR = 100000;
+    static constexpr int POP_SIZE = 12;
+    static constexpr long MAX_ITERATIONS = 10000;
+    static constexpr double CROSSOVER_RATE = 0.90; // % of children produce from a crossover
+    static constexpr double BEST_SELECTION_RATE = 0.25; // % of population consider as best
+    static constexpr double MUTATION_RATE = 0.70;
+    static constexpr int LIMIT_STAGNATION = 50000;
 
-	static constexpr const int NB_CORE = 4;
-	static constexpr const int SIZE_OF_MASK = (( ((NB_CORE - 1) / 8) + 1)* 8);
-	static constexpr const char* IRQ_PREFIX = "/proc/irq/";
-	static constexpr const char* IRQ_SUFFIX = "/smp_affinity";
+    static constexpr const int NB_CORE = 4;
+    static constexpr const int SIZE_OF_MASK = (( ((NB_CORE - 1) / 8) + 1)* 8);
+    static constexpr const char* IRQ_PREFIX = "/proc/irq/";
+    static constexpr const char* IRQ_SUFFIX = "/smp_affinity";
 
-	using Random = MyRandom; 
-	using Selection = SimpleSelection<Trait>;
-	// using SelectionOfBests = SelectionOfFirstBests<Trait>;
-	using Crossover = SinglePointCrossover<Trait>;
-	using Mutation = SimpleMutation<Trait>;
-	using Sort = Minimise<Trait>;
-	// using Evaluate = EvalHelloWorld<Trait>;
-	using Evaluate = EvalIrq<Trait>;
-	using BuildHeader = BuildMyHeader<Trait>;
-	using RecoverHeader = RecoverMyHeader<Trait>;
-	using Gene = IrqGene<Trait>;
-	
-	static Random random;
+    using Random = MyRandom; 
+    using Selection = SimpleSelection<Trait>;
+    using Crossover = SinglePointCrossover<Trait>;
+    using Mutation = SimpleMutation<Trait>;
+    using Sort = Minimise<Trait>;
+    using Evaluate = EvalIrq<Trait>;
+    using BuildHeader = BuildMyHeader<Trait>;
+    using RecoverHeader = RecoverMyHeader<Trait>;
+    using Gene = IrqGene<Trait>;
 
-	static constexpr const char* SAVE_FILE_PATH = "state.save";
+    static Random random;
 
+    static constexpr const char* SAVE_FILE_PATH = "/tmp/state.save";
+
+    static bool isFinished(long bestFitness, size_t iterations, int stagnation){
+        return false;
+    }
 };
 Trait::Random Trait::random;
 
-
-
-
-
 int main(int argc, char* argv[]){
-    (void)argc;
-    (void)argv;
-
+    readIRQConf<Trait>();
     if(argc > 1){
-    	readIRQConf();
-		GeneticAlgo<Trait> gen;
-        gen.recoverState();
-		gen.start();
+        GeneticAlgo<Trait> gen(1);
+        gen.start();    
     }else{
-	    readIRQConf();
-		GeneticAlgo<Trait> gen;
-		gen.start();
+        GeneticAlgo<Trait> gen;
+        gen.start();
     }
-
+    return 0;
 }
 
 std::ostream& operator<<(std::ostream& os, const Chromosome<Trait>& c){
-	os << c.toString();
-	return os;
-}	
+    os << c.toString();
+    return os;
+}   

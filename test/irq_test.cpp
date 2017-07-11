@@ -14,6 +14,7 @@ static std::vector<int> irqToConsider;
 // The array will represent our first solution
 // Set irqToConsiderLength
 // Return irqToConsider that contains the irq's mask to be set by the algo
+template<typename _Trait> 
 int readIRQConf(){
     FILE * confFilePointer;
     char * line = NULL;
@@ -27,9 +28,16 @@ int readIRQConf(){
     if (confFilePointer == NULL)
         return -1;
     // Count the number of lines in file
+    int i=0;
     while ((read = getline(&line, &len, confFilePointer)) != -1) { 
         irqToConsider.push_back(std::stoi(line));
+        ++i;
     }
+    if(i != _Trait::NB_GENES){
+        std::cout << "irqConfile is not compatible with NB_GENES" << std::endl;
+        return -1;
+    } 
+
     fclose(confFilePointer);
     return 0;
 }
@@ -50,7 +58,6 @@ int setIrq(Chromosome<_Trait>& ch){
 }
 
 long pingpong(){
-    std::cout << "DEBUG!!!!!!!" << std::endl;
     int pipefd[2];
     pipe(pipefd);
     int ret = fork();
@@ -164,7 +171,7 @@ struct Trait {
 Trait::Random Trait::random;
 
 TEST (irq, global) { 
-    readIRQConf();
+    readIRQConf<Trait>();
     GeneticAlgo<Trait> gen;
     // gen.recoverState();
     gen.start();
